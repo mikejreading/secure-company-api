@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const compression = require('compression');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const { errorHandler } = require('./middleware/error.middleware');
@@ -12,6 +13,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
+app.use(compression()); // Add compression
 app.use(express.json());
 
 // Routes
