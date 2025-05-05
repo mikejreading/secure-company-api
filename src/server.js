@@ -4,15 +4,48 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const compression = require('compression');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Security Middleware
+app.use(helmet()); // Add various HTTP headers for security
+app.use(hpp()); // Protect against HTTP Parameter Pollution attacks
+
+// Rate limiting (except in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+  });
+  app.use('/api/', limiter);
+
+  // Stricter rate limit for auth routes
+  const authLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // limit each IP to 5 requests per hour
+    message: 'Too many login attempts, please try again after an hour'
+  });
+  app.use('/api/auth/', authLimiter);
+}
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  maxAge: 600 // 10 minutes
+}));
+
 app.use(morgan('dev'));
+
 // Configure compression
 app.use(compression({
   level: 6, // Default compression level

@@ -21,7 +21,7 @@ describe('Input Validation', () => {
         .send({
           name: 'Test User',
           email: 'invalid-email',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toBe(400);
@@ -38,8 +38,11 @@ describe('Input Validation', () => {
         });
 
       expect(res.statusCode).toBe(400);
-      expect(res.body.errors).toContain('Password must be at least 6 characters');
-      expect(res.body.errors).toContain('Password must contain at least one number');
+      const errors = res.body.errors[0].split(', ');
+      expect(errors).toContain('Password must be at least 8 characters long');
+      expect(errors).toContain('Password must contain at least one uppercase letter');
+      expect(errors).toContain('Password must contain at least one number');
+      expect(errors).toContain('Password must contain at least one special character');
     });
 
     it('should validate name length', async () => {
@@ -48,7 +51,7 @@ describe('Input Validation', () => {
         .send({
           name: 'A',
           email: 'test@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toBe(400);

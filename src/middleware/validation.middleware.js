@@ -1,4 +1,5 @@
 const { body, validationResult } = require('express-validator');
+const { validatePassword } = require('../utils/password');
 
 exports.validateRegistration = [
   body('name')
@@ -15,9 +16,13 @@ exports.validateRegistration = [
   body('password')
     .trim()
     .notEmpty().withMessage('Password is required')
-    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-    .matches(/\d/).withMessage('Password must contain at least one number')
-    .matches(/[a-zA-Z]/).withMessage('Password must contain at least one letter'),
+    .custom((value) => {
+      const validation = validatePassword(value);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+      return true;
+    }),
   
   handleValidationErrors
 ];

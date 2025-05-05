@@ -11,6 +11,11 @@ exports.getAllUsers = async (req, res, next) => {
 
 exports.getUser = async (req, res, next) => {
   try {
+    // Validate MongoDB ID format
+    if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) {
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+
     const user = await User.findById(req.params.id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

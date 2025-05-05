@@ -18,42 +18,44 @@ describe('Error Handling', () => {
     });
 
     it('should handle duplicate key errors', async () => {
-      // Create initial user
-      const firstUser = {
+      const testUser = {
         name: 'Test User',
         email: 'duplicate@example.com',
-        password: 'password123'
+        password: 'TestPass123!'
       };
 
+      // Create initial user
       await request(app)
         .post('/api/auth/register')
-        .send(firstUser);
+        .send(testUser);
 
       // Try to create user with same email
       const res = await request(app)
         .post('/api/auth/register')
-        .send(firstUser);
+        .send(testUser);
 
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty('message');
-      expect(res.body.message).toMatch(/duplicate/i);
+      expect(res.body.message).toBe('Duplicate email value entered');
     });
 
     it('should handle invalid MongoDB ObjectId', async () => {
       // First create and login a user to get a valid token
+      const testUser = {
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'TestPass123!'
+      };
+
       await request(app)
         .post('/api/auth/register')
-        .send({
-          name: 'Test User',
-          email: 'test@example.com',
-          password: 'password123'
-        });
+        .send(testUser);
 
       const loginRes = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
-          password: 'password123'
+          email: testUser.email,
+          password: testUser.password
         });
 
       const res = await request(app)

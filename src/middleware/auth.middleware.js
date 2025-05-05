@@ -9,14 +9,48 @@ exports.protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ message: 'Not authorized to access this route' });
+      return res.status(401).json({ 
+        message: 'Not authorized to access this route',
+        error: 'No token provided'
+      });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
-    next();
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Check if token has expired
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < currentTimestamp) {
+        return res.status(401).json({
+          message: 'Not authorized to access this route',
+          error: 'Token has expired'
+        });
+      }
+
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return res.status(401).json({
+          message: 'Not authorized to access this route',
+          error: 'User no longer exists'
+        });
+      }
+
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+          message: 'Not authorized to access this route',
+          error: 'Invalid token'
+        });
+      }
+      throw jwtError;
+    }
   } catch (error) {
-    res.status(401).json({ message: 'Not authorized to access this route' });
+    res.status(401).json({ 
+      message: 'Not authorized to access this route',
+      error: 'Authentication failed'
+    });
   }
 };
 
