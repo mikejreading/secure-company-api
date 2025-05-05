@@ -1,57 +1,41 @@
 const User = require('../models/user.model');
+const { asyncHandler, createResponse, notFound } = require('../utils/controller');
 
-exports.getAllUsers = async (req, res, next) => {
-  try {
-    const users = await User.find().select('-password');
-    res.json(users);
-  } catch (error) {
-    next(error);
+// Validate MongoDB ID format
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+exports.getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find().select('-password');
+  createResponse(res, 200, users);
+});
+
+exports.getUser = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    return createResponse(res, 500, { message: 'Internal server error' });
   }
-};
 
-exports.getUser = async (req, res, next) => {
-  try {
-    // Validate MongoDB ID format
-    if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) {
-      return res.status(500).json({ message: 'Internal server error' });
-    }
+  const user = await User.findById(req.params.id).select('-password');
+  if (!user) return notFound(res, 'User');
+  
+  createResponse(res, 200, user);
+});
 
-    const user = await User.findById(req.params.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    next(error);
-  }
-};
+exports.updateUser = asyncHandler(async (req, res) => {
+  const { name, email } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { name, email },
+    { new: true, runValidators: true }
+  ).select('-password');
 
-exports.updateUser = async (req, res, next) => {
-  try {
-    const { name, email } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { name, email },
-      { new: true, runValidators: true }
-    ).select('-password');
+  if (!user) return notFound(res, 'User');
+  
+  createResponse(res, 200, user);
+});
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.deleteUser = async (req, res, next) => {
-  try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.status(204).json(null);
-  } catch (error) {
-    next(error);
-  }
-};
+exports.deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndDelete(req.params.id);
+  if (!user) return notFound(res, 'User');
+  
+  createResponse(res, 204);
+});
