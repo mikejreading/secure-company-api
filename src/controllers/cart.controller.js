@@ -2,15 +2,36 @@ const Cart = require('../models/cart.model');
 const Product = require('../models/product.model');
 const { asyncHandler, createResponse, notFound } = require('../utils/controller');
 
-// Create or get user's cart
+// Get all carts (admin only)
+exports.getAllCarts = asyncHandler(async (req, res) => {
+  const carts = await Cart.find().populate('user', 'name email');
+  createResponse(res, 200, carts);
+});
+
+// Get cart by user ID (admin) or own cart (user)
 exports.getCart = asyncHandler(async (req, res) => {
-  let cart = await Cart.findOne({ user: req.user.id });
+  const userId = req.params.userId || req.user.id;
+
+  // Regular users can only access their own cart
+  if (req.user.role !== 'admin' && userId !== req.user.id) {
+    return createResponse(res, 403, { 
+      message: 'Not authorized to access this cart'
+    });
+  }
+
+  let cart = await Cart.findOne({ user: userId }).populate('user', 'name email');
   
   if (!cart) {
-    cart = await Cart.create({
-      user: req.user.id,
-      items: []
-    });
+    // Only create cart if it's for the requesting user
+    if (userId === req.user.id) {
+      cart = await Cart.create({
+        user: req.user.id,
+        items: []
+      });
+      cart = await cart.populate('user', 'name email');
+    } else {
+      return createResponse(res, 404, { message: 'Cart not found' });
+    }
   }
   
   createResponse(res, 200, cart);
@@ -19,17 +40,34 @@ exports.getCart = asyncHandler(async (req, res) => {
 // Add item to cart
 exports.addItem = asyncHandler(async (req, res) => {
   const { productGUID, quantity } = req.body;
+  const userId = req.params.userId || req.user.id;
+
+  // Regular users can only modify their own cart
+  if (req.user.role !== 'admin' && userId !== req.user.id) {
+    return createResponse(res, 403, { 
+      message: 'Not authorized to modify this cart'
+    });
+  }
 
   // Verify product exists
   const product = await Product.findOne({ productGUID });
-  if (!product) return notFound(res, 'Product');
+  if (!product) {
+    return createResponse(res, 404, { 
+      message: 'Product not found'
+    });
+  }
 
-  let cart = await Cart.findOne({ user: req.user.id });
+  let cart = await Cart.findOne({ user: userId });
   
-  // Create cart if it doesn't exist
+  // Create cart if it doesn't exist (only for own cart)
   if (!cart) {
+    if (userId !== req.user.id) {
+      return createResponse(res, 404, { 
+        message: 'Cart not found'
+      });
+    }
     cart = await Cart.create({
-      user: req.user.id,
+      user: userId,
       items: []
     });
   }
@@ -50,6 +88,7 @@ exports.addItem = asyncHandler(async (req, res) => {
   }
 
   await cart.save();
+  cart = await cart.populate('user', 'name email');
   createResponse(res, 200, cart);
 });
 
@@ -57,12 +96,28 @@ exports.addItem = asyncHandler(async (req, res) => {
 exports.updateItem = asyncHandler(async (req, res) => {
   const { productGUID } = req.params;
   const { quantity } = req.body;
+  const userId = req.params.userId || req.user.id;
 
-  const cart = await Cart.findOne({ user: req.user.id });
-  if (!cart) return notFound(res, 'Cart');
+  // Regular users can only modify their own cart
+  if (req.user.role !== 'admin' && userId !== req.user.id) {
+    return createResponse(res, 403, { 
+      message: 'Not authorized to modify this cart'
+    });
+  }
+
+  let cart = await Cart.findOne({ user: userId });
+  if (!cart) {
+    return createResponse(res, 404, { 
+      message: 'Cart not found'
+    });
+  }
 
   const itemIndex = cart.items.findIndex(item => item.productGUID === productGUID);
-  if (itemIndex === -1) return notFound(res, 'Item in cart');
+  if (itemIndex === -1) {
+    return createResponse(res, 404, { 
+      message: 'Item not found in cart'
+    });
+  }
 
   if (quantity === 0) {
     // Remove item if quantity is 0
@@ -73,32 +128,64 @@ exports.updateItem = asyncHandler(async (req, res) => {
   }
 
   await cart.save();
+  cart = await cart.populate('user', 'name email');
   createResponse(res, 200, cart);
 });
 
 // Remove item from cart
 exports.removeItem = asyncHandler(async (req, res) => {
   const { productGUID } = req.params;
+  const userId = req.params.userId || req.user.id;
 
-  const cart = await Cart.findOne({ user: req.user.id });
-  if (!cart) return notFound(res, 'Cart');
+  // Regular users can only modify their own cart
+  if (req.user.role !== 'admin' && userId !== req.user.id) {
+    return createResponse(res, 403, { 
+      message: 'Not authorized to modify this cart'
+    });
+  }
+
+  let cart = await Cart.findOne({ user: userId });
+  if (!cart) {
+    return createResponse(res, 404, { 
+      message: 'Cart not found'
+    });
+  }
 
   const itemIndex = cart.items.findIndex(item => item.productGUID === productGUID);
-  if (itemIndex === -1) return notFound(res, 'Item in cart');
+  if (itemIndex === -1) {
+    return createResponse(res, 404, { 
+      message: 'Item not found in cart'
+    });
+  }
 
   cart.items.splice(itemIndex, 1);
   await cart.save();
   
+  cart = await cart.populate('user', 'name email');
   createResponse(res, 200, cart);
 });
 
 // Clear cart
 exports.clearCart = asyncHandler(async (req, res) => {
-  const cart = await Cart.findOne({ user: req.user.id });
-  if (!cart) return notFound(res, 'Cart');
+  const userId = req.params.userId || req.user.id;
+
+  // Regular users can only modify their own cart
+  if (req.user.role !== 'admin' && userId !== req.user.id) {
+    return createResponse(res, 403, { 
+      message: 'Not authorized to modify this cart'
+    });
+  }
+
+  let cart = await Cart.findOne({ user: userId });
+  if (!cart) {
+    return createResponse(res, 404, { 
+      message: 'Cart not found'
+    });
+  }
 
   cart.items = [];
   await cart.save();
   
+  cart = await cart.populate('user', 'name email');
   createResponse(res, 200, cart);
 });

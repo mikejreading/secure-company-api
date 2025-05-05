@@ -1,4 +1,5 @@
 const { body, param, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -52,6 +53,20 @@ exports.validateRemoveItem = [
     .notEmpty().withMessage('Product GUID is required')
     .matches(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/)
     .withMessage('Invalid product GUID format'),
+  
+  handleValidationErrors
+];
+
+exports.validateUserId = [
+  param('userId')
+    .trim()
+    .notEmpty().withMessage('User ID is required')
+    .custom((value) => {
+      if (!mongoose.Types.ObjectId.isValid(value)) {
+        throw new Error('Invalid user ID format');
+      }
+      return true;
+    }),
   
   handleValidationErrors
 ];
