@@ -13,7 +13,17 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
-app.use(compression()); // Add compression
+// Configure compression
+app.use(compression({
+  level: 6, // Default compression level
+  threshold: 0, // No minimum size threshold
+  filter: (req, res) => {
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'] !== '') {
+      return compression.filter(req, res);
+    }
+    return false;
+  }
+}));
 app.use(express.json());
 
 // Routes
